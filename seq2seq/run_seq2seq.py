@@ -31,6 +31,7 @@ from seq2seq.utils.dataset_loader import load_dataset
 from seq2seq.utils.spider import SpiderTrainer
 from seq2seq.utils.cosql import CoSQLTrainer
 
+from peft import get_peft_config, PeftModel, PeftConfig, get_peft_model, LoraConfig, TaskType
 
 def main() -> None:
     # See all possible arguments by passing the --help flag to this script.
@@ -126,6 +127,10 @@ def main() -> None:
         use_cache=not training_args.gradient_checkpointing,
     )
 
+    peft_config = LoraConfig(
+        task_type=TaskType.SEQ_2_SEQ_LM, inference_mode=False, r=8, lora_alpha=32, lora_dropout=0.1
+    )
+
     # Initialize tokenizer
     tokenizer = AutoTokenizer.from_pretrained(
         model_args.tokenizer_name if model_args.tokenizer_name else model_args.model_name_or_path,
@@ -169,6 +174,9 @@ def main() -> None:
         )
         if isinstance(model, T5ForConditionalGeneration):
             model.resize_token_embeddings(len(tokenizer))
+
+        model = get_peft_model(model, peft_config)
+        model.print_trainable_parameters()
 
         if training_args.label_smoothing_factor > 0 and not hasattr(model, "prepare_decoder_input_ids_from_labels"):
             logger.warning(
@@ -214,7 +222,8 @@ def main() -> None:
                 checkpoint = last_checkpoint
 
             train_result = trainer.train(resume_from_checkpoint=checkpoint)
-            trainer.save_model()  # Saves the tokenizer too for easy upload
+            #trainer.save_model()  # Saves the tokenizer too for easy upload
+            model.save_pretrained("./Lora_model") 
 
             metrics = train_result.metrics
             max_train_samples = (
