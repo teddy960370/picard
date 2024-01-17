@@ -108,7 +108,7 @@ train: pull-train-image
 	mkdir -p -m 777 transformers_cache
 	mkdir -p -m 777 wandb
 	docker run \
-		-it \
+		-it --gpus=all \
 		--rm \
 		--user 13011:13011 \
 		--mount type=bind,source=$(BASE_DIR)/train,target=/train \
@@ -124,7 +124,7 @@ train_cosql: pull-train-image
 	mkdir -p -m 777 transformers_cache
 	mkdir -p -m 777 wandb
 	docker run \
-		-it \
+		-it --gpus=all \
 		--rm \
 		--user 13011:13011 \
 		--mount type=bind,source=$(BASE_DIR)/train,target=/train \
@@ -140,7 +140,7 @@ eval: pull-eval-image
 	mkdir -p -m 777 transformers_cache
 	mkdir -p -m 777 wandb
 	docker run \
-		-it \
+		-it --gpus=all \
 		--rm \
 		--user 13011:13011 \
 		--mount type=bind,source=$(BASE_DIR)/eval,target=/eval \
@@ -156,7 +156,7 @@ eval_cosql: pull-eval-image
 	mkdir -p -m 777 transformers_cache
 	mkdir -p -m 777 wandb
 	docker run \
-		-it \
+		-it --gpus=all \
 		--rm \
 		--user 13011:13011 \
 		--mount type=bind,source=$(BASE_DIR)/eval,target=/eval \
@@ -171,7 +171,7 @@ serve: pull-eval-image
 	mkdir -p -m 777 database
 	mkdir -p -m 777 transformers_cache
 	docker run \
-		-it \
+		-it --gpus=all \
 		--rm \
 		--user 13011:13011 \
 		-p 8000:8000 \
@@ -185,7 +185,7 @@ serve: pull-eval-image
 prediction_output: pull-eval-image
 	mkdir -p -m 777 prediction_output
 	docker run \
-		-it \
+		-it --gpus=all \
 		--rm \
 		--user 13011:13011 \
 		-p 8000:8000 \
