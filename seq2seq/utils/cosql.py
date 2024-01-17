@@ -102,7 +102,13 @@ class CoSQLTrainer(Seq2SeqTrainer):
         self, examples: Dataset, features: Dataset, predictions: np.ndarray, stage: str
     ) -> EvalPrediction:
         inputs = self.tokenizer.batch_decode([f["input_ids"] for f in features], skip_special_tokens=True)
-        label_ids = [f["labels"] for f in features]
+        temp_label_ids = [f["labels"] for f in features]
+
+        # list reshape to numpy array
+        label_ids = np.zeros([len(temp_label_ids),len(max(temp_label_ids,key = lambda x: len(x)))], dtype=int)
+        for i,j in enumerate(temp_label_ids):
+            label_ids[i][0:len(j)] = j
+
         if self.ignore_pad_token_for_loss:
             # Replace -100 in the labels as we can't decode them.
             _label_ids = np.where(label_ids != -100, label_ids, self.tokenizer.pad_token_id)
