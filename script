@@ -1,0 +1,23 @@
+docker run -it -d -v /home/ted/Desktop/Project/picard/:/code -p 5678:5678 d3bed211755a /bin/bash
+
+pip install peft
+
+pip install --upgrade --force-reinstall transformers
+
+conda install tenacity
+
+conda install rapidfuzz,nltk,sqlparse
+
+python -m nltk.downloader -d /usr/local/share/nltk_data punkt stopwords
+sudo python3 -m nltk.downloader -d /usr/local/share/nltk_data punkt stopwords
+
+
+
+pip install wandb
+
+pip install -U datasets 
+
+
+4e6a8d948225d4f887dec539c71d907f69aaf34d
+
+nvtop
