@@ -5,20 +5,15 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "Python: Attach",
+            "name": "Python: Picard Train",
             "type": "python",
-            "request": "attach",
-            "connect": {
-                "host": "localhost",
-                "port": 5678
-            }
-        },
-        {
-            "type": "pwa-chrome",
             "request": "launch",
-            "name": "Launch Chrome against localhost",
-            "url": "http://localhost:8080",
-            "webRoot": "${workspaceFolder}"
+            "program": "${file}",
+            "console": "integratedTerminal",
+            "justMyCode": true,
+            "env": {"PYTHONPATH": "${workspaceFolder}"},
+            "args": ["configs/T5-3B_Lora.json"],
+            "sudo": true
         }
     ]
 }
