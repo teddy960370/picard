@@ -16,7 +16,7 @@
 
 
 import json
-from third_party.spider.preprocess.get_tables import dump_db_json_schema
+from third_partys.spider.preprocess.get_tables import dump_db_json_schema
 
 import datasets
 

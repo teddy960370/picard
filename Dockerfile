@@ -56,13 +56,13 @@ RUN curl https://apt.llvm.org/llvm-snapshot.gpg.key | apt-key add - \
         libsodium-dev \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
-COPY --chown=$TOOLKIT_USER_ID:$TOOLKIT_GROUP_ID third_party/zstd /app/third_party/zstd/
-RUN cd /app/third_party/zstd \
+COPY --chown=$TOOLKIT_USER_ID:$TOOLKIT_GROUP_ID third_partys/zstd /app/third_partys/zstd/
+RUN cd /app/third_partys/zstd \
     && make -j4 \
     && make install \
     && make clean
-COPY --chown=$TOOLKIT_USER_ID:$TOOLKIT_GROUP_ID third_party/fmt /app/third_party/fmt/
-RUN cd /app/third_party/fmt/ \
+COPY --chown=$TOOLKIT_USER_ID:$TOOLKIT_GROUP_ID third_partys/fmt /app/third_partys/fmt/
+RUN cd /app/third_partys/fmt/ \
     && mkdir _build \
     && cd _build \
     && cmake -DBUILD_SHARED_LIBS=ON -DBUILD_EXAMPLES=off -DBUILD_TESTS=off ../. \
@@ -70,9 +70,9 @@ RUN cd /app/third_party/fmt/ \
     && make install \
     && cd .. \
     && rm -rf _build
-COPY --chown=$TOOLKIT_USER_ID:$TOOLKIT_GROUP_ID third_party/folly /app/third_party/folly/
+COPY --chown=$TOOLKIT_USER_ID:$TOOLKIT_GROUP_ID third_partys/folly /app/third_partys/folly/
 RUN pip install cython \
-    && cd /app/third_party/folly \
+    && cd /app/third_partys/folly \
     && mkdir _build \
     && cd _build \
     && cmake -DBUILD_SHARED_LIBS=ON -DPYTHON_EXTENSIONS=ON -DBUILD_EXAMPLES=off -DBUILD_TESTS=off ../. \
@@ -83,8 +83,8 @@ RUN pip install cython \
     && pip install /app/folly-0.0.1-cp37-cp37m-linux_x86_64.whl \
     && cd .. \
     && rm -rf _build
-COPY --chown=$TOOLKIT_USER_ID:$TOOLKIT_GROUP_ID third_party/rsocket-cpp /app/third_party/rsocket-cpp/
-RUN cd /app/third_party/rsocket-cpp \
+COPY --chown=$TOOLKIT_USER_ID:$TOOLKIT_GROUP_ID third_partys/rsocket-cpp /app/third_partys/rsocket-cpp/
+RUN cd /app/third_partys/rsocket-cpp \
     && mkdir _build \
     && cd _build \
     && cmake -DBUILD_SHARED_LIBS=ON -DBUILD_EXAMPLES=off -DBUILD_TESTS=off ../. \
@@ -92,8 +92,8 @@ RUN cd /app/third_party/rsocket-cpp \
     && make install \
     && cd .. \
     && rm -rf _build
-COPY --chown=$TOOLKIT_USER_ID:$TOOLKIT_GROUP_ID third_party/fizz /app/third_party/fizz/
-RUN cd /app/third_party/fizz \
+COPY --chown=$TOOLKIT_USER_ID:$TOOLKIT_GROUP_ID third_partys/fizz /app/third_partys/fizz/
+RUN cd /app/third_partys/fizz \
     && mkdir _build \
     && cd _build \
     && cmake -DBUILD_SHARED_LIBS=ON -DBUILD_EXAMPLES=off -DBUILD_TESTS=off ../fizz \
@@ -101,8 +101,8 @@ RUN cd /app/third_party/fizz \
     && make install \
     && cd .. \
     && rm -rf _build
-COPY --chown=$TOOLKIT_USER_ID:$TOOLKIT_GROUP_ID third_party/wangle /app/third_party/wangle/
-RUN cd /app/third_party/wangle \
+COPY --chown=$TOOLKIT_USER_ID:$TOOLKIT_GROUP_ID third_partys/wangle /app/third_partys/wangle/
+RUN cd /app/third_partys/wangle \
     && mkdir _build \
     && cd _build \
     && cmake -DBUILD_SHARED_LIBS=ON -DBUILD_EXAMPLES=off -DBUILD_TESTS=off ../wangle \
@@ -110,8 +110,8 @@ RUN cd /app/third_party/wangle \
     && make install \
     && cd .. \
     && rm -rf _build
-COPY --chown=$TOOLKIT_USER_ID:$TOOLKIT_GROUP_ID third_party/fbthrift /app/third_party/fbthrift/
-RUN cd /app/third_party/fbthrift \
+COPY --chown=$TOOLKIT_USER_ID:$TOOLKIT_GROUP_ID third_partys/fbthrift /app/third_partys/fbthrift/
+RUN cd /app/third_partys/fbthrift \
     && mkdir _build \
     && cd _build \
     && cmake \
@@ -197,8 +197,8 @@ RUN buildDeps=" \
     && chown -R $TOOLKIT_USER_ID:$TOOLKIT_GROUP_ID /app/.local/share/ghcup
 
 # Build Facebook hsthrift
-COPY --chown=$TOOLKIT_USER_ID:$TOOLKIT_GROUP_ID third_party/hsthrift /app/third_party/hsthrift/
-RUN cd /app/third_party/hsthrift \
+COPY --chown=$TOOLKIT_USER_ID:$TOOLKIT_GROUP_ID third_partys/hsthrift /app/third_partys/hsthrift/
+RUN cd /app/third_partys/hsthrift \
     && make thrift-cpp \
     && cabal update \
     && cabal build exe:thrift-compiler \
@@ -242,8 +242,8 @@ RUN apt update && \
     rm -f /etc/legal /etc/motd
 
 # Build Huggingface tokenizers Rust libraries
-COPY --chown=$TOOLKIT_USER_ID:$TOOLKIT_GROUP_ID third_party/tokenizers /app/third_party/tokenizers/
-RUN cd /app/third_party/tokenizers \
+COPY --chown=$TOOLKIT_USER_ID:$TOOLKIT_GROUP_ID third_partys/tokenizers /app/third_partys/tokenizers/
+RUN cd /app/third_partys/tokenizers \
     && rustup --version \
     && cargo --version \
     && rustc --version \
@@ -286,8 +286,8 @@ ENV HF_HOME=/transformers_cache
 # Copy Seq-to-seq code
 COPY --chown=$TOOLKIT_USER_ID:$TOOLKIT_GROUP_ID ./seq2seq /app/seq2seq/
 COPY --chown=$TOOLKIT_USER_ID:$TOOLKIT_GROUP_ID ./tests /app/tests/
-COPY --chown=$TOOLKIT_USER_ID:$TOOLKIT_GROUP_ID ./third_party/spider /app/third_party/spider/
-COPY --chown=$TOOLKIT_USER_ID:$TOOLKIT_GROUP_ID ./third_party/test_suite /app/third_party/test_suite/
+COPY --chown=$TOOLKIT_USER_ID:$TOOLKIT_GROUP_ID ./third_partys/spider /app/third_partys/spider/
+COPY --chown=$TOOLKIT_USER_ID:$TOOLKIT_GROUP_ID ./third_partys/test_suite /app/third_partys/test_suite/
 COPY --chown=$TOOLKIT_USER_ID:$TOOLKIT_GROUP_ID ./configs /app/configs/
 
 # ------------------------
@@ -316,15 +316,15 @@ COPY --chown=$TOOLKIT_USER_ID:$TOOLKIT_GROUP_ID cabal.project fb-util-cabal.patc
 COPY --chown=$TOOLKIT_USER_ID:$TOOLKIT_GROUP_ID gen-hs /app/gen-hs/
 COPY --chown=$TOOLKIT_USER_ID:$TOOLKIT_GROUP_ID picard /app/picard/
 RUN cabal update \
-    && cd third_party/hsthrift \
+    && cd third_partys/hsthrift \
     && make THRIFT_COMPILE=thrift-compiler thrift-cpp thrift-hs \
     && cd ../.. \
     && thrift-compiler --hs --use-hash-map --use-hash-set --gen-prefix gen-hs -o . picard.thrift \
-    && patch -p 1 -d third_party/hsthrift < ./fb-util-cabal.patch \
+    && patch -p 1 -d third_partys/hsthrift < ./fb-util-cabal.patch \
     && cabal install --overwrite-policy=always --install-method=copy exe:picard \
     && chown $TOOLKIT_USER_ID:$TOOLKIT_GROUP_ID /app/.cabal/bin/picard \
     && cabal clean \
-    && rm -rf /app/third_party/hsthrift/compiler/tests \
+    && rm -rf /app/third_partys/hsthrift/compiler/tests \
     && rm -rf /app/.cabal/packages/* \
     && rm -rf /app/.cabal/logs/* \
     && chown -R $TOOLKIT_USER_ID:$TOOLKIT_GROUP_ID /app/picard/ \
@@ -338,8 +338,8 @@ ENV HF_HOME=/transformers_cache
 # Copy Seq-to-seq code
 COPY --chown=$TOOLKIT_USER_ID:$TOOLKIT_GROUP_ID ./seq2seq /app/seq2seq/
 COPY --chown=$TOOLKIT_USER_ID:$TOOLKIT_GROUP_ID ./tests /app/tests/
-COPY --chown=$TOOLKIT_USER_ID:$TOOLKIT_GROUP_ID ./third_party/spider /app/third_party/spider/
-COPY --chown=$TOOLKIT_USER_ID:$TOOLKIT_GROUP_ID ./third_party/test_suite /app/third_party/test_suite/
+COPY --chown=$TOOLKIT_USER_ID:$TOOLKIT_GROUP_ID ./third_partys/spider /app/third_partys/spider/
+COPY --chown=$TOOLKIT_USER_ID:$TOOLKIT_GROUP_ID ./third_partys/test_suite /app/third_partys/test_suite/
 COPY --chown=$TOOLKIT_USER_ID:$TOOLKIT_GROUP_ID ./configs /app/configs/
 
 # Test Picard

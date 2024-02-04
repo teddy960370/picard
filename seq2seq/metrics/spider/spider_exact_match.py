@@ -1,7 +1,7 @@
 """Spider exact match metric."""
 
 from typing import Dict, Any
-from third_party.spider import evaluation as spider_evaluation
+from third_partys.spider import evaluation as spider_evaluation
 
 
 def compute_exact_match_metric(predictions, references) -> Dict[str, Any]:

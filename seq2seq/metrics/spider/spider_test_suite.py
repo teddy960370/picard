@@ -1,7 +1,7 @@
 """Spider Test Suite Execution Accuracy metric."""
 import logging
 from typing import Optional, Dict, Any
-from third_party.test_suite import evaluation as test_suite_evaluation
+from third_partys.test_suite import evaluation as test_suite_evaluation
 
 logger = logging.getLogger(__name__)
 

@@ -12,8 +12,7 @@
             "console": "integratedTerminal",
             "justMyCode": true,
             "env": {"PYTHONPATH": "${workspaceFolder}"},
-            "args": ["configs/T5-3B_Lora.json"],
-            "sudo": true
+            "args": ["configs/T5-base_Lora.json"]
         }
     ]
 }

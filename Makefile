@@ -32,8 +32,8 @@ build-thrift-code:
 build-picard-deps:
 	cabal update
 	thrift-compiler --hs --use-hash-map --use-hash-set --gen-prefix gen-hs -o . picard.thrift
-	patch -p 1 -N -d third_party/hsthrift < ./fb-util-cabal.patch || true
-	cd third_party/hsthrift \
+	patch -p 1 -N -d third_partys/hsthrift < ./fb-util-cabal.patch || true
+	cd third_partys/hsthrift \
 		&& make THRIFT_COMPILE=thrift-compiler thrift-cpp thrift-hs
 	cabal build --only-dependencies lib:picard
 

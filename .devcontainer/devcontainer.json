@@ -23,7 +23,7 @@
 	// Use 'forwardPorts' to make a list of ports inside the container available locally.
 	// "forwardPorts": [],
 	// Uncomment the next line to run commands after the container is created - for example installing curl.
-	"postCreateCommand": "bash -c \"pushd third_party/hsthrift && make THRIFT_COMPILE=thrift-compiler thrift-cpp thrift-hs && rm -rf compiler/tests && popd && make build-thrift-code\"",
+	"postCreateCommand": "bash -c \"pushd third_partys/hsthrift && make THRIFT_COMPILE=thrift-compiler thrift-cpp thrift-hs && rm -rf compiler/tests && popd && make build-thrift-code\"",
 	// Uncomment when using a ptrace-based debugger like C++, Go, and Rust
 	"runArgs": [
 		"--cap-add=SYS_PTRACE",
