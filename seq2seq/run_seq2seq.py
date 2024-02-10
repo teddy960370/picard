@@ -31,7 +31,9 @@ from seq2seq.utils.dataset_loader import load_dataset
 from seq2seq.utils.spider import SpiderTrainer
 from seq2seq.utils.cosql import CoSQLTrainer
 
-from peft import get_peft_config, PeftModel, PeftConfig, get_peft_model, LoraConfig, TaskType
+import torch
+from transformers import BitsAndBytesConfig
+from peft import get_peft_config, PeftModel, PeftConfig, get_peft_model, LoraConfig, TaskType,prepare_model_for_kbit_training
 
 def main() -> None:
     # See all possible arguments by passing the --help flag to this script.
@@ -128,7 +130,18 @@ def main() -> None:
     )
 
     peft_config = LoraConfig(
-        task_type=TaskType.SEQ_2_SEQ_LM, inference_mode=False, r=8, lora_alpha=32, lora_dropout=0.1
+        task_type = TaskType.SEQ_2_SEQ_LM, 
+        inference_mode = False, 
+        r = 8, 
+        lora_alpha = 32, 
+        lora_dropout = 0.1
+    )
+
+    bnb_config = BitsAndBytesConfig(
+        load_in_4bit=True,
+        bnb_4bit_use_double_quant=True,
+        bnb_4bit_quant_type="nf4",
+        bnb_4bit_compute_dtype=torch.bfloat16
     )
 
     # Initialize tokenizer
@@ -171,9 +184,13 @@ def main() -> None:
             cache_dir=model_args.cache_dir,
             revision=model_args.model_revision,
             use_auth_token=True if model_args.use_auth_token else None,
+            quantization_config=bnb_config,
         )
         if isinstance(model, T5ForConditionalGeneration):
             model.resize_token_embeddings(len(tokenizer))
+
+        model.gradient_checkpointing_enable()
+        model = prepare_model_for_kbit_training(model)
 
         model = get_peft_model(model, peft_config)
         model.print_trainable_parameters()
