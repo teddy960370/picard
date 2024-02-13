@@ -18,7 +18,7 @@ from transformers.file_utils import copy_func
 from transformers.models.auto.auto_factory import _get_model_class
 from transformers.models.auto.configuration_auto import AutoConfig
 from transformers.tokenization_utils_fast import PreTrainedTokenizerFast
-from transformers.models.auto import AutoModelForSeq2SeqLM
+from transformers.models.auto import AutoModelForSeq2SeqLM,AutoModelForCausalLM
 import logging
 
 logger = logging.getLogger(__name__)
@@ -105,7 +105,7 @@ class PicardLauncher(subprocess.Popen):
 
 
 def with_picard(
-    model_cls: AutoModelForSeq2SeqLM,
+    model_cls: AutoModelForCausalLM,
     picard_args: PicardArguments,
     tokenizer: PreTrainedTokenizerFast,
     schemas: Optional[Dict[str, dict]] = None,
