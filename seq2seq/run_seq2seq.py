@@ -17,8 +17,8 @@ from contextlib import nullcontext
 from dataclasses import asdict, fields
 from transformers.hf_argparser import HfArgumentParser
 from transformers.training_args_seq2seq import Seq2SeqTrainingArguments
-from transformers.models.auto import AutoConfig, AutoTokenizer, AutoModelForSeq2SeqLM
-from transformers.data.data_collator import DataCollatorForSeq2Seq
+from transformers.models.auto import AutoConfig, AutoTokenizer, AutoModelForSeq2SeqLM,AutoModelForCausalLM
+from transformers.data.data_collator import DataCollatorForSeq2Seq,DataCollatorForLanguageModeling
 from transformers.trainer_utils import get_last_checkpoint, set_seed
 from transformers.models.t5.modeling_t5 import T5ForConditionalGeneration
 from transformers.models.t5.tokenization_t5_fast import T5TokenizerFast
@@ -30,8 +30,12 @@ from seq2seq.utils.dataset import DataTrainingArguments, DataArguments
 from seq2seq.utils.dataset_loader import load_dataset
 from seq2seq.utils.spider import SpiderTrainer
 from seq2seq.utils.cosql import CoSQLTrainer
+from huggingface_hub import login
 
-from peft import get_peft_config, PeftModel, PeftConfig, get_peft_model, LoraConfig, TaskType
+import torch
+from transformers import BitsAndBytesConfig,Seq2SeqTrainer
+from peft import get_peft_config, PeftModel, PeftConfig, get_peft_model, LoraConfig, TaskType,prepare_model_for_kbit_training
+from DataCollatorForCausalLM import DataCollatorForCausalLM
 
 def main() -> None:
     # See all possible arguments by passing the --help flag to this script.
@@ -56,6 +60,10 @@ def main() -> None:
     else:
         picard_args, model_args, data_args, data_training_args, training_args = parser.parse_args_into_dataclasses()
     
+    #login Huggingface
+    login(token = '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')
+
+
     # If model_name_or_path includes ??? instead of the number of steps, 
     # we load the latest checkpoint.
     if 'checkpoint-???' in model_args.model_name_or_path:
@@ -128,7 +136,18 @@ def main() -> None:
     )
 
     peft_config = LoraConfig(
-        task_type=TaskType.SEQ_2_SEQ_LM, inference_mode=False, r=8, lora_alpha=32, lora_dropout=0.1
+        task_type = TaskType.CAUSAL_LM, 
+        inference_mode = False, 
+        r = 8, 
+        lora_alpha = 32, 
+        lora_dropout = 0.1
+    )
+
+    bnb_config = BitsAndBytesConfig(
+        load_in_4bit=True,
+        bnb_4bit_use_double_quant=True,
+        bnb_4bit_quant_type="nf4",
+        bnb_4bit_compute_dtype=torch.bfloat16
     )
 
     # Initialize tokenizer
@@ -143,6 +162,18 @@ def main() -> None:
     if isinstance(tokenizer, T5TokenizerFast):
         # In T5 `<` is OOV, see https://github.com/google-research/language/blob/master/language/nqg/tasks/spider/restore_oov.py
         tokenizer.add_tokens([AddedToken(" <="), AddedToken(" <")])
+
+    # Check if the pad token is already in the tokenizer vocabulary
+    if '<pad>' not in tokenizer.get_vocab():
+        # Add the pad token
+        tokenizer.add_special_tokens({"pad_token":"<pad>"})
+
+    # Check if the mask token is already in the tokenizer vocabulary
+    if '<mask>' not in tokenizer.get_vocab():
+        # Add the mask token
+        tokenizer.add_special_tokens({"mask_token":"<mask>"})
+        
+    tokenizer.padding_side = 'right'
 
     # Load dataset
     metric, dataset_splits = load_dataset(
@@ -164,16 +195,33 @@ def main() -> None:
             model_cls_wrapper = lambda model_cls: model_cls
 
         # Initialize model
-        model = model_cls_wrapper(AutoModelForSeq2SeqLM).from_pretrained(
+        model = model_cls_wrapper(AutoModelForCausalLM).from_pretrained(
             model_args.model_name_or_path,
             from_tf=bool(".ckpt" in model_args.model_name_or_path),
             config=config,
             cache_dir=model_args.cache_dir,
             revision=model_args.model_revision,
             use_auth_token=True if model_args.use_auth_token else None,
+            quantization_config=bnb_config,
+            
         )
         if isinstance(model, T5ForConditionalGeneration):
             model.resize_token_embeddings(len(tokenizer))
+
+        #Resize the embeddings
+        model.resize_token_embeddings(len(tokenizer))
+
+        #Configure the pad token in the model
+        model.config.pad_token_id = tokenizer.pad_token_id
+
+        #Configure the mask token in the model
+        model.config.mask_token_id = tokenizer.mask_token_id
+
+        # Check if they are equal
+        assert model.config.pad_token_id == tokenizer.pad_token_id, "The model's pad token ID does not match the tokenizer's pad token ID!"
+
+        model.gradient_checkpointing_enable()
+        model = prepare_model_for_kbit_training(model)
 
         model = get_peft_model(model, peft_config)
         model.print_trainable_parameters()
@@ -193,12 +241,19 @@ def main() -> None:
             "eval_dataset": dataset_splits.eval_split.dataset if training_args.do_eval else None,
             "eval_examples": dataset_splits.eval_split.examples if training_args.do_eval else None,
             "tokenizer": tokenizer,
-            "data_collator": DataCollatorForSeq2Seq(
-                tokenizer,
-                model=model,
-                label_pad_token_id=(-100 if data_training_args.ignore_pad_token_for_loss else tokenizer.pad_token_id),
-                pad_to_multiple_of=8 if training_args.fp16 else None,
+            "data_collator" : DataCollatorForCausalLM(
+                tokenizer=tokenizer,
+                source_max_len=512,
+                target_max_len=512,
+                train_on_source=False,
+                predict_with_generate=False,
             ),
+            #"data_collator": DataCollatorForLanguageModeling(
+            #    tokenizer,
+            #    model=model,
+            #    label_pad_token_id=(-100 if data_training_args.ignore_pad_token_for_loss else tokenizer.pad_token_id),
+            #    pad_to_multiple_of=8 if training_args.fp16 else None,
+            #),
             "ignore_pad_token_for_loss": data_training_args.ignore_pad_token_for_loss,
             "target_with_db_id": data_training_args.target_with_db_id,
         }

@@ -10,7 +10,7 @@ conda install rapidfuzz,nltk,sqlparse
 
 python -m nltk.downloader -d /usr/local/share/nltk_data punkt stopwords
 sudo python3 -m nltk.downloader -d /usr/local/share/nltk_data punkt stopwords
-
+sudo /home/ted/anaconda3/envs/picard/bin/python3 -m nltk.downloader -d /usr/local/share/nltk_data punkt stopwords
 
 
 pip install wandb
@@ -21,3 +21,18 @@ pip install -U datasets
 4e6a8d948225d4f887dec539c71d907f69aaf34d
 
 nvtop
+
+T5-Large
+trainable params: 2,359,296 || all params: 740,000,768 || trainable%: 0.3188234528967408
+T5-3B
+trainable params: 5,898,240 || all params: 2,857,469,952 || trainable%: 0.2064147689767203
+Llama-7B
+trainable params: 4,194,304 || all params: 6,742,609,920 || trainable%: 0.06220594176090199
+
+export PYTHONPATH=$PYTHONPATH:/home/ted/Desktop/Project/picard/
+
+sudo PYTHONPATH=/home/ted/Desktop/Project/picard/ /home/ted/anaconda3/envs/picard/bin/python3 ./seq2seq/run_seq2seq.py ./configs/T5-large_Lora.json
+
+https://download.llamameta.net/*?Policy=eyJTdGF0ZW1lbnQiOlt7InVuaXF1ZV9oYXNoIjoicDRxZDVnZ2ttMm1zNTNqa3RzMDNtaWN2IiwiUmVzb3VyY2UiOiJodHRwczpcL1wvZG93bmxvYWQubGxhbWFtZXRhLm5ldFwvKiIsIkNvbmRpdGlvbiI6eyJEYXRlTGVzc1RoYW4iOnsiQVdTOkVwb2NoVGltZSI6MTcwNTkxMTE0MH19fV19&Signature=ml4TTb2s1eei1YxcZx%7EEWFTsLx8t2LUSJECDLb1gfpf2-aTWCywCkepEBOhkwKylWptPyl9yOK2lbPy3%7E7M2bjsVB8reIZwktcNCvoNA4wesFv83AAtZhBlWhHg16ooHovqhCWJH-4aYoqh9dVbPoqL27XuAvBpMvuo7DIWY5DtczrDvjgTn25a4PPxMiUsHcnke6Ns2N82wsrUmpEvTs%7EFNGqLeYGtsZOyUmQGgtrh02qyao8U1heqwEdoRqVrS2O3xa8ImpBv278iKu1AEijLOs8BNTVI5BG1cdmIOy-eXdGcw7Sw%7EpxphXWJ0BGBqRS1-KJqntSXR-XwOUN5IOg__&Key-Pair-Id=K15QRJLYKIFSLZ&Download-Request-ID=397260692688193
+
+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
