@@ -25,7 +25,7 @@ from transformers.models.t5.tokenization_t5_fast import T5TokenizerFast
 from transformers.tokenization_utils_fast import PreTrainedTokenizerFast
 from tokenizers import AddedToken
 from seq2seq.utils.args import ModelArguments
-from seq2seq.utils.picard_model_wrapper import PicardArguments, PicardLauncher, with_picard
+from seq2seq.utils.picard_model_wrapper import PicardArguments, PicardLauncher, with_picard,with_picard_clm
 from seq2seq.utils.dataset import DataTrainingArguments, DataArguments
 from seq2seq.utils.dataset_loader import load_dataset
 from seq2seq.utils.spider import SpiderTrainer
@@ -33,8 +33,9 @@ from seq2seq.utils.cosql import CoSQLTrainer
 from huggingface_hub import login
 
 import torch
-from transformers import BitsAndBytesConfig
+from transformers import BitsAndBytesConfig,Seq2SeqTrainer
 from peft import get_peft_config, PeftModel, PeftConfig, get_peft_model, LoraConfig, TaskType,prepare_model_for_kbit_training
+from DataCollatorForCausalLM import DataCollatorForCausalLM
 
 def main() -> None:
     # See all possible arguments by passing the --help flag to this script.
@@ -59,6 +60,9 @@ def main() -> None:
     else:
         picard_args, model_args, data_args, data_training_args, training_args = parser.parse_args_into_dataclasses()
     
+    #login Huggingface
+    login(token = 'my_hf_token')
+
 
     # If model_name_or_path includes ??? instead of the number of steps, 
     # we load the latest checkpoint.
@@ -132,7 +136,7 @@ def main() -> None:
     )
 
     peft_config = LoraConfig(
-        task_type = TaskType.SEQ_2_SEQ_LM, 
+        task_type = TaskType.CAUSAL_LM, 
         inference_mode = False, 
         r = 8, 
         lora_alpha = 32, 
@@ -169,7 +173,7 @@ def main() -> None:
         # Add the mask token
         tokenizer.add_special_tokens({"mask_token":"<mask>"})
         
-    #tokenizer.padding_side = 'right'
+    tokenizer.padding_side = 'right'
 
     # Load dataset
     metric, dataset_splits = load_dataset(
@@ -184,14 +188,14 @@ def main() -> None:
     with PicardLauncher() if picard_args.launch_picard and training_args.local_rank <= 0 else nullcontext(None):
         # Get Picard model class wrapper
         if picard_args.use_picard:
-            model_cls_wrapper = lambda model_cls: with_picard(
+            model_cls_wrapper = lambda model_cls: with_picard_clm(
                 model_cls=model_cls, picard_args=picard_args, tokenizer=tokenizer, schemas=dataset_splits.schemas
             )
         else:
             model_cls_wrapper = lambda model_cls: model_cls
 
         # Initialize model
-        model = model_cls_wrapper(AutoModelForSeq2SeqLM).from_pretrained(
+        model = model_cls_wrapper(AutoModelForCausalLM).from_pretrained(
             model_args.model_name_or_path,
             from_tf=bool(".ckpt" in model_args.model_name_or_path),
             config=config,
@@ -237,12 +241,19 @@ def main() -> None:
             "eval_dataset": dataset_splits.eval_split.dataset if training_args.do_eval else None,
             "eval_examples": dataset_splits.eval_split.examples if training_args.do_eval else None,
             "tokenizer": tokenizer,
-            "data_collator": DataCollatorForSeq2Seq(
-                tokenizer,
-                model=model,
-                label_pad_token_id=(-100 if data_training_args.ignore_pad_token_for_loss else tokenizer.pad_token_id),
-                pad_to_multiple_of=8 if training_args.fp16 else None,
+            "data_collator" : DataCollatorForCausalLM(
+                tokenizer=tokenizer,
+                source_max_len=512,
+                target_max_len=512,
+                train_on_source=False,
+                predict_with_generate=False,
             ),
+            #"data_collator": DataCollatorForLanguageModeling(
+            #    tokenizer,
+            #    model=model,
+            #    label_pad_token_id=(-100 if data_training_args.ignore_pad_token_for_loss else tokenizer.pad_token_id),
+            #    pad_to_multiple_of=8 if training_args.fp16 else None,
+            #),
             "ignore_pad_token_for_loss": data_training_args.ignore_pad_token_for_loss,
             "target_with_db_id": data_training_args.target_with_db_id,
         }

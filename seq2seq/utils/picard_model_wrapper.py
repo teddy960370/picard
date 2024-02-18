@@ -105,6 +105,103 @@ class PicardLauncher(subprocess.Popen):
 
 
 def with_picard(
+    model_cls: AutoModelForSeq2SeqLM,
+    picard_args: PicardArguments,
+    tokenizer: PreTrainedTokenizerFast,
+    schemas: Optional[Dict[str, dict]] = None,
+):
+    schema_cache: Dict[str, dict] = deepcopy(schemas) if schemas is not None else dict()
+
+    def get_picard_client() -> AsyncContextManager[Picard]:
+        return get_client(
+            Picard,
+            host=picard_args.picard_host,
+            port=picard_args.picard_port,
+            timeout=1,
+            protocol=Protocol.BINARY,
+        )
+
+    async def _init_picard() -> None:
+        async with get_picard_client() as client:
+            for db_id, db_info in schema_cache.items():
+                await _register_schema(db_id=db_id, db_info=db_info, picard_client=client)
+            await _register_tokenizer(picard_client=client)
+
+    async def _register_schema(db_id: str, db_info: dict, picard_client: Picard) -> None:
+        sql_schema = get_picard_schema(**db_info)
+        try:
+            await picard_client.registerSQLSchema(db_id, sql_schema)
+        except RegisterSQLSchemaException:
+            # db already registered
+            logger.debug(f"schema already registered: {db_id}")
+            pass
+
+    async def _register_schema_without_client(db_id: str, db_info: dict) -> None:
+        async with get_picard_client() as client:
+            await _register_schema(db_id=db_id, db_info=db_info, picard_client=client)
+
+    async def _register_tokenizer(picard_client: Picard) -> None:
+        assert isinstance(tokenizer, PreTrainedTokenizerFast)
+        json_str = tokenizer.backend_tokenizer.to_str(pretty=False)
+        await picard_client.registerTokenizer(json_str)
+
+    def _add_schema(db_id: str, db_info: dict) -> None:
+        if not db_id in schema_cache:
+            schema_cache[db_id] = deepcopy(db_info)
+            asyncio.run(_register_schema_without_client(db_id=db_id, db_info=db_info), debug=False)
+        else:
+            assert db_info == schema_cache[db_id], "unexpected schema change"
+
+    @torch.no_grad()
+    def _generate(
+        self,
+        *args,
+        logits_processor: Optional[LogitsProcessorList] = LogitsProcessorList(),
+        eos_token_id: Optional[int] = None,
+        **kwargs,
+    ) -> Union[GreedySearchOutput, SampleOutput, BeamSearchOutput, BeamSampleOutput, torch.LongTensor]:
+        eos_token_id = eos_token_id if eos_token_id is not None else self.config.eos_token_id
+
+        logits_processor.append(
+            PicardLogitsProcessor(
+                eos_token_id=eos_token_id,
+                get_client=get_picard_client,
+                max_tokens_to_check=picard_args.picard_max_tokens_to_check,
+                mode=picard_args.picard_mode,
+                schedule=picard_args.picard_schedule,
+            )
+        )
+
+        return self.old_generate(*args, logits_processor=logits_processor, eos_token_id=eos_token_id, **kwargs)
+
+    class _PicardAutoModelClass(model_cls):
+        @classmethod
+        def from_pretrained(cls, pretrained_model_name_or_path, *model_args, **kwargs):
+            config = kwargs.pop("config", None)
+            kwargs["_from_auto"] = True
+            if not isinstance(config, PretrainedConfig):
+                config, kwargs = AutoConfig.from_pretrained(
+                    pretrained_model_name_or_path, return_unused_kwargs=True, **kwargs
+                )
+
+            if type(config) in cls._model_mapping.keys():
+                model_class = _get_model_class(config, cls._model_mapping)
+                generate = copy_func(_generate)
+                generate.__doc__ = model_class.generate.__doc__
+                model_class.old_generate = copy_func(model_class.generate)
+                model_class.generate = generate
+                model_class.add_schema = staticmethod(copy_func(_add_schema))
+                return model_class.from_pretrained(pretrained_model_name_or_path, *model_args, config=config, **kwargs)
+            raise ValueError(
+                f"Unrecognized configuration class {config.__class__} for this kind of AutoModel: {cls.__name__}.\n"
+                f"Model type should be one of {', '.join(c.__name__ for c in cls._model_mapping.keys())}."
+            )
+
+    asyncio.run(_init_picard(), debug=False)
+
+    return _PicardAutoModelClass
+
+def with_picard_clm(
     model_cls: AutoModelForCausalLM,
     picard_args: PicardArguments,
     tokenizer: PreTrainedTokenizerFast,
