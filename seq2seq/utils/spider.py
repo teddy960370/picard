@@ -4,7 +4,7 @@ from typing import Optional
 from datasets.arrow_dataset import Dataset
 from transformers.tokenization_utils_base import PreTrainedTokenizerBase
 from seq2seq.utils.dataset import DataTrainingArguments, normalize, serialize_schema
-from seq2seq.utils.trainer import Seq2SeqTrainer, EvalPrediction
+from seq2seq.utils.trainer import Seq2SeqTrainer, EvalPrediction,Trainer
 
 
 def spider_get_input(
@@ -87,7 +87,7 @@ def spider_pre_process_function(
     return model_inputs
 
 
-class SpiderTrainer(Seq2SeqTrainer):
+class SpiderTrainer(Trainer):
     def _post_process_function(
         self, examples: Dataset, features: Dataset, predictions: np.ndarray, stage: str
     ) -> EvalPrediction:
@@ -103,6 +103,8 @@ class SpiderTrainer(Seq2SeqTrainer):
         if self.ignore_pad_token_for_loss:
             # Replace -100 in the labels as we can't decode them.
             _label_ids = np.where(label_ids != -100, label_ids, self.tokenizer.pad_token_id)
+            _predictions = np.where(predictions != -100, predictions, self.tokenizer.pad_token_id)
+
         decoded_label_ids = self.tokenizer.batch_decode(_label_ids, skip_special_tokens=True)
         metas = [
             {
@@ -118,7 +120,7 @@ class SpiderTrainer(Seq2SeqTrainer):
             }
             for x, context, label in zip(examples, inputs, decoded_label_ids)
         ]
-        predictions = self.tokenizer.batch_decode(predictions, skip_special_tokens=True)
+        predictions = self.tokenizer.batch_decode(_predictions, skip_special_tokens=True)
         assert len(metas) == len(predictions)
         with open(f"{self.args.output_dir}/predictions_{stage}.json", "w") as f:
             json.dump(
