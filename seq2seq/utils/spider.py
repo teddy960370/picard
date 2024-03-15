@@ -12,7 +12,24 @@ def spider_get_input(
     serialized_schema: str,
     prefix: str,
 ) -> str:
-    return prefix + question.strip() + " " + serialized_schema.strip()
+    
+    if prefix is None:
+        return question.strip() + " " + serialized_schema.strip()
+    else:
+
+        B_SYS, E_SYS = "<<SYS>>\n", "\n<</SYS>>\n\n"
+        B_INST, E_INST = "[INST]", "[/INST]"
+
+        user_prompt = f"""### Input: 
+{question.strip()} 
+### Context: 
+{serialized_schema.strip()}
+"""
+
+        # Chat model prompt
+        prompt = f"{B_INST} {B_SYS}{prefix.strip()}{E_SYS} {E_INST}{user_prompt.strip()}\n"
+
+        return prompt
 
 
 def spider_get_target(
@@ -22,7 +39,12 @@ def spider_get_target(
     target_with_db_id: bool,
 ) -> str:
     _normalize = normalize if normalize_query else (lambda x: x)
-    return f"{db_id} | {_normalize(query)}" if target_with_db_id else _normalize(query)
+    #return f"{db_id} | {_normalize(query)}" if target_with_db_id else _normalize(query)
+
+    if target_with_db_id:
+        return f"### Response: {db_id} | {_normalize(query)}"
+    else:
+        return "### Response: " +_normalize(query)
 
 
 def spider_add_serialized_schema(ex: dict, data_training_args: DataTrainingArguments) -> dict:
@@ -128,10 +150,21 @@ class SpiderTrainer(Trainer):
                 f,
                 indent=4,
             )
-        return EvalPrediction(predictions=predictions, label_ids=label_ids, metas=metas)
+        return EvalPrediction(inputs = inputs ,predictions=predictions, label_ids=label_ids, metas=metas)
 
     def _compute_metrics(self, eval_prediction: EvalPrediction) -> dict:
-        predictions, label_ids, metas = eval_prediction
+        inputs , predictions, label_ids, metas = eval_prediction
+        # Remove prediction prefix which is prompt
+        #predictions = [prediction[len(input):] for input , prediction in zip(inputs,predictions)]
+        buffer = []
+        for pred in predictions:
+            if pred.rfind("### Response: ") != -1:
+                pos = pred.rfind("### Response: ") + len("### Response: ")
+                buffer.append(pred[pos:])
+            else:
+                buffer.append(pred)
+        predictions = buffer
+
         if self.target_with_db_id:
             # Remove database id from all predictions
             predictions = [pred.split("|", 1)[-1].strip() for pred in predictions]

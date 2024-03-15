@@ -11,6 +11,7 @@ import time
 
 
 class EvalPrediction(NamedTuple):
+    inputs: List[str]
     predictions: List[str]
     label_ids: np.ndarray
     metas: List[dict]
@@ -207,6 +208,7 @@ class Trainer(transformers.trainer.Trainer):
         This is a workaround to avoid storing too many tensors that are not needed.
         """
         pred_ids = torch.argmax(logits, dim=-1)
+        #pred_ids = torch.argmax(logits[0], dim=-1)
         return pred_ids
 
     def evaluate(

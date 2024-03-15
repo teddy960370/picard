@@ -61,7 +61,7 @@ def main() -> None:
         picard_args, model_args, data_args, data_training_args, training_args = parser.parse_args_into_dataclasses()
     
     #login Huggingface
-    login(token = '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')
+    login(token = 'hf_key')
 
 
     # If model_name_or_path includes ??? instead of the number of steps, 
@@ -173,7 +173,7 @@ def main() -> None:
         # Add the mask token
         tokenizer.add_special_tokens({"mask_token":"<mask>"})
         
-    tokenizer.padding_side = 'right'
+    #tokenizer.padding_side = 'right'
 
     # Load dataset
     metric, dataset_splits = load_dataset(
@@ -195,7 +195,7 @@ def main() -> None:
             model_cls_wrapper = lambda model_cls: model_cls
 
         # Initialize model
-        model = model_cls_wrapper(AutoModelForCausalLM).from_pretrained(
+        model = model_cls_wrapper(AutoModelForSeq2SeqLM).from_pretrained(
             model_args.model_name_or_path,
             from_tf=bool(".ckpt" in model_args.model_name_or_path),
             config=config,
@@ -241,12 +241,11 @@ def main() -> None:
             "eval_dataset": dataset_splits.eval_split.dataset if training_args.do_eval else None,
             "eval_examples": dataset_splits.eval_split.examples if training_args.do_eval else None,
             "tokenizer": tokenizer,
-            "data_collator" : DataCollatorForCausalLM(
-                tokenizer=tokenizer,
-                source_max_len=512,
-                target_max_len=512,
-                train_on_source=False,
-                predict_with_generate=False,
+            "data_collator" : DataCollatorForSeq2Seq(
+                tokenizer,
+                model=model,
+                label_pad_token_id=(-100 if data_training_args.ignore_pad_token_for_loss else tokenizer.pad_token_id),
+                pad_to_multiple_of=8 if training_args.fp16 else None,
             ),
             #"data_collator": DataCollatorForLanguageModeling(
             #    tokenizer,
@@ -332,4 +331,5 @@ def main() -> None:
 
 
 if __name__ == "__main__":
+
     main()

@@ -105,7 +105,7 @@ class PicardLauncher(subprocess.Popen):
 
 
 def with_picard(
-    model_cls: AutoModelForCausalLM,
+    model_cls: AutoModelForSeq2SeqLM,
     picard_args: PicardArguments,
     tokenizer: PreTrainedTokenizerFast,
     schemas: Optional[Dict[str, dict]] = None,

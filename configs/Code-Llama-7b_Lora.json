@@ -1,6 +1,6 @@
 {
-    "run_name": "Llama-7b test",
-    "model_name_or_path": "meta-llama/Llama-2-7b-hf",
+    "run_name": "Code Llama-7b",
+    "model_name_or_path": "codellama/CodeLlama-7b-hf",
     "dataset": "spider",
     "source_prefix": "You are a powerful text-to-SQL model. Your job is to answer questions about a database. You are given a question and context regarding one or more tables. You must output the SQL query that answers the question.",
     "schema_serialization_type": "peteshaw",

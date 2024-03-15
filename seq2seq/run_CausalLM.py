@@ -35,7 +35,33 @@ from huggingface_hub import login
 import torch
 from transformers import BitsAndBytesConfig,Seq2SeqTrainer
 from peft import get_peft_config, PeftModel, PeftConfig, get_peft_model, LoraConfig, TaskType,prepare_model_for_kbit_training
-from DataCollatorForCausalLM import DataCollatorForCausalLM,DataCollatorForMySeq2Seq,DataCollatorForSupervisedDataset,smart_tokenizer_and_embedding_resize
+from DataCollatorForCausalLM import DataCollatorForCausalLM,DataCollatorForSupervisedDataset
+
+
+def check_baseline(tokenizer,model):
+
+    eval_prompt = """[INST]<<SYS>>
+    You are a powerful text-to-SQL model. Your job is to answer questions about a database. You are given a question and context regarding one or more tables.
+    You must output the SQL query that answers the question.
+    <</SYS>>[/INST]
+    
+    ### Input:
+    Which Class has a Frequency MHz larger than 91.5, and a City of license of hyannis, nebraska?
+
+    ### Context:
+    CREATE TABLE table_name_12 (class VARCHAR, frequency_mhz VARCHAR, city_of_license VARCHAR)
+
+    ### Response:
+    
+    """
+    # {'question': 'Name the comptroller for office of prohibition', 'context': 'CREATE TABLE table_22607062_1 (comptroller VARCHAR, ticket___office VARCHAR)', 'answer': 'SELECT comptroller FROM table_22607062_1 WHERE ticket___office = "Prohibition"'}
+    model_input = tokenizer(eval_prompt, return_tensors="pt").to("cuda")
+
+    model.eval()
+    with torch.no_grad():
+        generate_ids = model.generate(**model_input, max_new_tokens=100)
+        except_prompts = generate_ids[:, model_input.input_ids.shape[1]:]
+        print(tokenizer.decode(except_prompts[0], skip_special_tokens=True))
 
 def main() -> None:
     # See all possible arguments by passing the --help flag to this script.
@@ -160,7 +186,7 @@ def main() -> None:
         use_fast=model_args.use_fast_tokenizer,
         revision=model_args.model_revision,
         use_auth_token=True if model_args.use_auth_token else None,
-        add_eos_token=True
+        #add_eos_token=True
     )
     assert isinstance(tokenizer, PreTrainedTokenizerFast), "Only fast tokenizers are currently supported"
     if isinstance(tokenizer, T5TokenizerFast):
@@ -186,7 +212,7 @@ def main() -> None:
         # Add the mask token
         tokenizer.add_special_tokens({"mask_token":"<mask>"})
         
-    tokenizer.padding_side = 'left'
+    #tokenizer.padding_side = 'left'
 
     # Load dataset
     metric, dataset_splits = load_dataset(
@@ -240,13 +266,17 @@ def main() -> None:
         model = get_peft_model(model, peft_config)
         model.print_trainable_parameters()
 
+        #model = PeftModel.from_pretrained(model, "./Lora_model/")
+        #model = model.merge_and_unload()
+
+
         if training_args.label_smoothing_factor > 0 and not hasattr(model, "prepare_decoder_input_ids_from_labels"):
             logger.warning(
                 "label_smoothing is enabled but the `prepare_decoder_input_ids_from_labels` method is not defined for"
                 f"`{model.__class__.__name__}`. This will lead to loss being calculated twice and will take up more memory"
             )
 
-        #dataset_splits.eval_split.dataset = dataset_splits.eval_split.dataset.select(range(2))
+        #dataset_splits.eval_split.dataset = dataset_splits.eval_split.dataset.select(range(3))
 
         # Initialize Trainer
         trainer_kwargs = {
@@ -275,10 +305,11 @@ def main() -> None:
             ),
             #"data_collator": DataCollatorForLanguageModeling(
             #    tokenizer,
-            #    #mlm=False,
+            #    mlm=False,
             #    #label_pad_token_id=(-100 if data_training_args.ignore_pad_token_for_loss else tokenizer.pad_token_id),
             #    pad_to_multiple_of=8 if training_args.fp16 else None,
             #),
+            #"data_collator": DataCollatorForSupervisedDataset(tokenizer=tokenizer),
             "ignore_pad_token_for_loss": data_training_args.ignore_pad_token_for_loss,
             "target_with_db_id": data_training_args.target_with_db_id,
         }
@@ -289,6 +320,8 @@ def main() -> None:
             trainer = CoSQLTrainer(**trainer_kwargs)
         else:
             raise NotImplementedError()
+
+        check_baseline(tokenizer,model)
 
         # Training
         if training_args.do_train:
@@ -303,7 +336,7 @@ def main() -> None:
 
             train_result = trainer.train(resume_from_checkpoint=checkpoint)
             #trainer.save_model()  # Saves the tokenizer too for easy upload
-            model.save_pretrained("./Lora_model") 
+            model.save_pretrained("./Lora_model")
 
             metrics = train_result.metrics
             max_train_samples = (
