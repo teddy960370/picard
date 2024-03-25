@@ -37,3 +37,48 @@ class ModelArguments:
             "with private models)."
         },
     )
+
+
+@dataclass
+class PeftArguments:
+
+    """
+    Arguments with PEFT hyperparameters
+    """
+
+    peft_weights : str = field(
+        default=None,
+        metadata={"help": "Path to the weights file for PEFT"}
+    )
+    peft_config : str = field(
+        default="",
+        metadata={"help": "Path to the config file for PEFT"}
+    )
+    task_type : str = field(
+        default="TaskType.CAUSAL_LM",
+        metadata={"help": "Task type for PEFT"}
+    )
+    lora_r : float = field(
+        default=0.0,
+        metadata={"help": "LoRA regularization term"}
+    )
+    lora_alpha : float = field(
+        default=0.0,
+        metadata={"help": "LoRA alpha term"}
+    )
+    lora_dropout : float = field(
+        default=0.0,
+        metadata={"help": "LoRA dropout term"}
+    )
+
+@dataclass
+class HuggingFaceArguments:
+
+    """
+    Arguments with HuggingFace hyperparameters
+    """
+
+    hf_key : str = field(
+        default="",
+        metadata={"help": "HuggingFace API key"}
+    )

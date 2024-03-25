@@ -24,7 +24,7 @@ from transformers.models.t5.modeling_t5 import T5ForConditionalGeneration
 from transformers.models.t5.tokenization_t5_fast import T5TokenizerFast
 from transformers.tokenization_utils_fast import PreTrainedTokenizerFast
 from tokenizers import AddedToken
-from seq2seq.utils.args import ModelArguments
+from seq2seq.utils.args import ModelArguments,PeftArguments,HuggingFaceArguments
 from seq2seq.utils.picard_model_wrapper import PicardArguments, PicardLauncher, with_picard
 from seq2seq.utils.dataset import DataTrainingArguments, DataArguments
 from seq2seq.utils.dataset_loader import load_dataset
@@ -66,31 +66,34 @@ def check_baseline(tokenizer,model):
 def main() -> None:
     # See all possible arguments by passing the --help flag to this script.
     parser = HfArgumentParser(
-        (PicardArguments, ModelArguments, DataArguments, DataTrainingArguments, Seq2SeqTrainingArguments)
+        (PicardArguments, ModelArguments, DataArguments, DataTrainingArguments, Seq2SeqTrainingArguments,PeftArguments,HuggingFaceArguments)
     )
     picard_args: PicardArguments
     model_args: ModelArguments
     data_args: DataArguments
     data_training_args: DataTrainingArguments
     training_args: Seq2SeqTrainingArguments
+    peft_args: PeftArguments
+    huggingface_args: HuggingFaceArguments
     if len(sys.argv) == 2 and sys.argv[1].endswith(".json"):
         # If we pass only one argument to the script and it's the path to a json file,
         # let's parse it to get our arguments.
-        picard_args, model_args, data_args, data_training_args, training_args = parser.parse_json_file(
+        picard_args, model_args, data_args, data_training_args, training_args,peft_args,huggingface_args = parser.parse_json_file(
             json_file=os.path.abspath(sys.argv[1])
         )
     elif len(sys.argv) == 3 and sys.argv[1].startswith("--local_rank") and sys.argv[2].endswith(".json"):
         data = json.loads(Path(os.path.abspath(sys.argv[2])).read_text())
         data.update({"local_rank": int(sys.argv[1].split("=")[1])})
-        picard_args, model_args, data_args, data_training_args, training_args = parser.parse_dict(args=data)
+        picard_args, model_args, data_args, data_training_args, training_args,peft_args,huggingface_args = parser.parse_dict(args=data)
     else:
-        picard_args, model_args, data_args, data_training_args, training_args = parser.parse_args_into_dataclasses()
+        picard_args, model_args, data_args, data_training_args, training_args,peft_args,huggingface_args = parser.parse_args_into_dataclasses()
     
     #login Huggingface
-    login(token = 'hf_key')
+    if huggingface_args.hf_key is not None:
+        login(token = huggingface_args.hf_key)
 
-    #training_args.do_train = False
-    #training_args.do_eval = True
+    training_args.do_train = False
+    training_args.do_eval = True
 
 
     # If model_name_or_path includes ??? instead of the number of steps, 
@@ -164,13 +167,7 @@ def main() -> None:
         use_cache=not training_args.gradient_checkpointing,
     )
 
-    peft_config = LoraConfig(
-        task_type = TaskType.CAUSAL_LM, 
-        inference_mode = False, 
-        r = 8, 
-        lora_alpha = 32, 
-        lora_dropout = 0.1
-    )
+    
 
     bnb_config = BitsAndBytesConfig(
         load_in_4bit=True,
@@ -258,16 +255,42 @@ def main() -> None:
         # Check if they are equal
         assert model.config.pad_token_id == tokenizer.pad_token_id, "The model's pad token ID does not match the tokenizer's pad token ID!"
 
-        model.config.use_cache = False
-        model.enable_input_require_grads()
-        model.gradient_checkpointing_enable()
-        model = prepare_model_for_kbit_training(model)
+        #model.config.use_cache = False
+        
+        if peft_args.peft_weights is not None:
+            model = PeftModel.from_pretrained(
+                model,
+                peft_args.peft_weights,
+                torch_dtype=torch.float16,
+                is_trainable=False,
+            )
+            model.config.use_cache = True
+        else:
+            peft_config = LoraConfig(
+                task_type = TaskType.CAUSAL_LM, 
+                inference_mode = False, 
+                r = peft_args.lora_r, 
+                lora_alpha = peft_args.lora_alpha, 
+                lora_dropout = peft_args.lora_dropout
+                #r = 256,
+                #lora_alpha = 512,
+            )
+            model = get_peft_model(model, peft_config)
+            model.config.use_cache = False
+            
+            model.print_trainable_parameters()
 
-        model = get_peft_model(model, peft_config)
-        model.print_trainable_parameters()
-
-        #model = PeftModel.from_pretrained(model, "./Lora_model/")
+        #model = get_peft_model(model, peft_config)
+        
+        #model.print_trainable_parameters()
+        save_model_path = training_args.output_dir + "/" +  model_args.model_name_or_path
+        #model = PeftModel.from_pretrained(model, save_model_path)
         #model = model.merge_and_unload()
+
+
+        model.enable_input_require_grads()
+        #model.gradient_checkpointing_enable()
+        model = prepare_model_for_kbit_training(model)
 
 
         if training_args.label_smoothing_factor > 0 and not hasattr(model, "prepare_decoder_input_ids_from_labels"):
@@ -277,6 +300,7 @@ def main() -> None:
             )
 
         #dataset_splits.eval_split.dataset = dataset_splits.eval_split.dataset.select(range(3))
+        #dataset_splits.train_split.dataset = dataset_splits.train_split.dataset.select(range(3))
 
         # Initialize Trainer
         trainer_kwargs = {
@@ -321,7 +345,7 @@ def main() -> None:
         else:
             raise NotImplementedError()
 
-        check_baseline(tokenizer,model)
+        #check_baseline(tokenizer,model)
 
         # Training
         if training_args.do_train:
@@ -336,7 +360,10 @@ def main() -> None:
 
             train_result = trainer.train(resume_from_checkpoint=checkpoint)
             #trainer.save_model()  # Saves the tokenizer too for easy upload
-            model.save_pretrained("./Lora_model")
+            
+            model.save_pretrained(save_model_path)
+            #trainer.save_model(save_model_path + "/Model")
+            #trainer.mode.save_config(save_model_path + "/config.json")
 
             metrics = train_result.metrics
             max_train_samples = (
