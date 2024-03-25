@@ -144,6 +144,16 @@ class SpiderTrainer(Trainer):
         ]
         predictions = self.tokenizer.batch_decode(_predictions, skip_special_tokens=True)
         assert len(metas) == len(predictions)
+
+        buffer = []
+        for pred in predictions:
+            if pred.rfind("### Response: ") != -1:
+                pos = pred.rfind("### Response: ") + len("### Response: ")
+                buffer.append(pred[pos:])
+            else:
+                buffer.append(pred)
+        predictions = buffer
+
         with open(f"{self.args.output_dir}/predictions_{stage}.json", "w") as f:
             json.dump(
                 [dict(**{"prediction": prediction}, **meta) for prediction, meta in zip(predictions, metas)],
@@ -156,14 +166,14 @@ class SpiderTrainer(Trainer):
         inputs , predictions, label_ids, metas = eval_prediction
         # Remove prediction prefix which is prompt
         #predictions = [prediction[len(input):] for input , prediction in zip(inputs,predictions)]
-        buffer = []
-        for pred in predictions:
-            if pred.rfind("### Response: ") != -1:
-                pos = pred.rfind("### Response: ") + len("### Response: ")
-                buffer.append(pred[pos:])
-            else:
-                buffer.append(pred)
-        predictions = buffer
+        # buffer = []
+        # for pred in predictions:
+        #     if pred.rfind("### Response: ") != -1:
+        #         pos = pred.rfind("### Response: ") + len("### Response: ")
+        #         buffer.append(pred[pos:])
+        #     else:
+        #         buffer.append(pred)
+        # predictions = buffer
 
         if self.target_with_db_id:
             # Remove database id from all predictions
